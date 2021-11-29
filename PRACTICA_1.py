@@ -9,9 +9,7 @@ Created on Wed Nov 24 16:41:37 2021
 # Inverted pendulum analysis
 
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
-import scipy.signal as ss
 from scipy.integrate import odeint
 import control
 
@@ -40,160 +38,242 @@ def f(xVec, t, params):
 
 if __name__ == "__main__":
     plt.close('all')
+    counter = 1
+    nums = [0.2, 0.5, 0.9]
+    for i in nums:
+        
+        print('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
+        
+        # System Parameters
+        u = 10       # u=1 similar to a step response
+        g = 9.81    
+        L = 0.5
+        m = 0.5
+        R = 0.05
+        M = 2.5
+        b = 0.2
+        
+        # Time vector
+        t = np.linspace(0,500,2000)
+        
+        xRef = np.array([0.0,   # x_0 
+                         0.0,   # dot_x_0
+                         0.0,   # theta_0
+                         0.0])  # dot_theta_0
+        
+        deltaX   = np.array([np.pi,   # theta_init 
+                             0.0,    # dot_theta_init
+                             0.0,   # x_init
+                             np.pi])    # dot_x_init
+        
+        #%% Calculating Non linear sistem (EDOs)
+        
+        xNL = odeint(f, xRef + deltaX, t, args=([M,m,L,b,u,R,g],))
+        
+        #%% Linearized system using Jacobian arrays (Taylor)
+       
+        # Note: Jx and Ju have been calculated assumming xRef = [0]
+        
+        # Calculating Jx
+        
+        df2_x2 = (2*L**2*b+R**2*b)/(-m*R**2-M*R**2-2*L**2*M)
+        df2_x3 = (2*g*L**2*m)/(2*L**2*M+m*R**2+M*R**2)
+        
+        df4_x2 = (-2*L*b)/(-m*R**2-M*R**2-2*L**2*M)
+        df4_x3 = (-2*g*L*m-2*g*L*M)/(2*L**2*M+m*R**2+M*R**2)
+          
+        Jx = np.array([[0,   1,  0,  0],
+                       [0, df2_x2, df2_x3, 0],
+                       [0,   0,  0,  1],
+                       [0, df4_x2, df4_x3, 0]
+                        ])
+        
+        df2_u1 = (2*L**2+R**2)/(2*L**2*M+m*R**2+M*R**2)
+        df4_u1 = (-2*L)/(2*L**2*M+m*R**2+M*R**2)
+        
+        
+        # Calculating Ju
+        
+        Ju = np.array([[0.],
+                       [df2_u1],
+                       [0.],
+                       [df4_u1]])
+        
+        # C and D Space state arrays
+        C = np.array([[1,0,0,0],[0,0,1,0]])
+        D = np.array([[0],[0]])
+        
+        """linearizedSystem = ss.StateSpace(Jx,Ju,C,D)
+        U = np.ones_like(t)
+        
+        _, dy,dx = ss.lsim(linearizedSystem, U, t,X0=deltaX)"""
+        
+        # Creating Space state
+        linearizedSystem_Taylor = control.ss(Jx,Ju,C,D)
+        
+        # Transfer function
+        G = control.ss2tf(linearizedSystem_Taylor)
+         
+        # Removing values near to 0
+        den = np.around(G .den,decimals=12)
+        num = np.around(G .num,decimals=12)
+        G  = control.tf(num,den)
     
-    # System Parameters
-    u = 1       # u=1 similar to a step response
-    g = 9.81    
-    L = 0.5
-    m = 0.25
-    R = 0.015
-    M = 2.5
-    b = 0.2
+        # Controlability Analysis
+        control_matrix_taylor = control.ctrb(Jx, Ju)
+        control_matrix_taylor_rank = np.linalg.matrix_rank(control_matrix_taylor)
+        n_A_taylor = np.shape(Jx[0])
+        
+        # Observabilty analysis
+        obs_matrix_taylor = control.obsv(Jx, C)
+        obs_matrix_taylor_rank = np.linalg.matrix_rank(obs_matrix_taylor)
+        
+        
+        #%% Linearized system using small angles approximation
+        # Where: sin(theta)~ theta, cos(theta) ~ 1 and theta*theta_dot² ~ 0
+         
+        # System constants
+         
+        beta = (2*g*L**2*m)/(m*R**2+M*R**2+2*L**2*M)
+        gamma = (2*L**2+R**2)/(m*R**2+M*R**2+2*L**2*M)
+        alpha = (-g*L*2*(m+M))/((m+M)*R**2+2*L**2*M)
+        phi = (2*L)/((m+M)*R**2+2*L**2*M)
     
-    # Time vector
-    t = np.linspace(0,150,5000)
+        A = np.array([[0,1,0,0],[0,-b*gamma,beta,0],[0,0,0,1],[0,b*phi,alpha,0]])
+        B = np.array([[0],[gamma],[0],[-phi]])
+        C = np.array([[1,0,0,0],[0,0,1,0]])
+        D = np.array([[0],[0]])
     
-    xRef = np.array([0.0,   # x_0 
-                     0.0,   # dot_x_0
-                     0.0,   # theta_0
-                     0.0])  # dot_theta_0
+        # Creating Space state
+        linearizedSystem_angles = control.ss(A,B,C,D)
     
-    deltaX   = np.array([0.0,   # theta_init 
-                         0.0,    # dot_theta_init
-                         0.0,   # x_init
-                         0.0])    # dot_x_init
+        # Transfer function
+        H = control.ss2tf(linearizedSystem_angles)
+         
+        # Removing values near to 0
+        den = np.around(H.den,decimals=12)
+        num = np.around(H.num,decimals=12)
+        H = control.tf(num,den)
+        
+        # Controlability Analysis
+        control_matrix_angles = control.ctrb(A, B)
+        control_matrix_angles_rank = np.linalg.matrix_rank(control_matrix_angles)
+        n_A_angles = np.shape(A[0])
+       
+        # Observabilty analysis
+        obs_matrix_angles = control.obsv(A, C)
+        obs_matrix_angles_rank = np.linalg.matrix_rank(obs_matrix_angles)
+         
+        #%% System response to step function
+         
+        _,yout_taylor = control.step_response(linearizedSystem_Taylor,T=t,X0=deltaX)
+        _,yout_angles = control.step_response(linearizedSystem_angles,T=t,X0=deltaX)
+        
+        # Evolution of x
+        plt.figure(1, figsize=(10,6))
+        #plt.subplot(3,1,counter)
+        plt.plot(t,xNL[:,0], label=fr'Non-lineal ($L$={L}m)')
+        #plt.plot(t,np.transpose(yout_taylor[0]),label=f'Linealized by Taylor (M={M}Kg)')
+        #plt.plot(t,np.transpose(yout_angles[0]),label=f'Linealized (small angles (M={M}Kg))')
+        plt.title('X variation along time')
     
-    #%% Calculating Non linear sistem (EDOs)
-    
-    xNL = odeint(f, xRef + deltaX, t, args=([M,m,L,b,u,R,g],))
-    
-    #%% Linearized system using Jacobian arrays (Taylor)
-   
-    # Note: Jx and Ju have been calculated assumming xRef = [0]
-    
-    # Calculating Jx
-    
-    df2_x2 = (2*L**2*b+R**2*b)/(-m*R**2-M*R**2-2*L**2*M)
-    df2_x3 = (2*g*L**2*m)/(2*L**2*M+m*R**2+M*R**2)
-    
-    df4_x2 = (-2*L*b)/(-m*R**2-M*R**2-2*L**2*M)
-    df4_x3 = (-2*g*L*m-2*g*L*M)/(2*L**2*M+m*R**2+M*R**2)
-      
-    Jx = np.array([[0,   1,  0,  0],
-                   [0, df2_x2, df2_x3, 0],
-                   [0,   0,  0,  1],
-                   [0, df4_x2, df4_x3, 0]
-                    ])
-    
-    df2_u1 = (2*L**2+R**2)/(2*L**2*M+m*R**2+M*R**2)
-    df4_u1 = (-2*L)/(2*L**2*M+m*R**2+M*R**2)
-    
-    
-    # Calculating Ju
-    
-    Ju = np.array([[0.],
-                   [df2_u1],
-                   [0.],
-                   [df4_u1]])
-    
-    # C and D Space state arrays
-    C = np.array([[1,0,0,0],[0,0,1,0]])
-    D = np.array([[0],[0]])
-    
-    """linearizedSystem = ss.StateSpace(Jx,Ju,C,D)
-    U = np.ones_like(t)
-    
-    _, dy,dx = ss.lsim(linearizedSystem, U, t,X0=deltaX)"""
-    
-    # Creating Space state
-    linearizedSystem_Taylor = control.ss(Jx,Ju,C,D)
-    
-    # Transfer function
-    G = control.ss2tf(linearizedSystem_Taylor)
-     
-    # Removing values near to 0
-    den = np.around(G .den,decimals=12)
-    num = np.around(G .num,decimals=12)
-    G  = control.tf(num,den)
+        plt.legend(loc='best', shadow=True, framealpha=1)
+        plt.grid(alpha=0.3)
+        plt.ylabel('x (m)')
+        plt.xlabel('time (s)')
+        
+        
 
-    # Controlability Analysis
-    control_matrix_taylor = control.ctrb(Jx, Ju)
-    control_matrix_taylor_rank = np.linalg.matrix_rank(control_matrix_taylor)
-    n_A_taylor = np.shape(Jx[0])
+        # Evolution of theta
+        plt.figure(2,figsize=(10,6))
+        plt.subplot(3,1,counter)
+        plt.plot(t,xNL[:,2], label=fr'Non-lineal ($L$={L}m)')
+        #plt.plot(t,np.transpose(yout_taylor[1]),label='Linealized by Taylor')
+        #plt.plot(t,np.transpose(yout_angles[1]),label='Linealized (small angles)')
+        plt.title('$\\theta$ variation along time')
     
-    # Observabilty analysis
-    obs_matrix_taylor = control.obsv(Jx, C)
-    obs_matrix_taylor_rank = np.linalg.matrix_rank(obs_matrix_taylor)
-    
-    
-    #%% Linearized system using small angles approximation
-    # Where: sin(theta)~ theta, cos(theta) ~ 1 and theta*theta_dot² ~ 0
-     
-    # System constants
-     
-    beta = (2*g*L**2*m)/(m*R**2+M*R**2+2*L**2*M)
-    gamma = (2*L**2+R**2)/(m*R**2+M*R**2+2*L**2*M)
-    alpha = (-g*L*2*(m+M))/((m+M)*R**2+2*L**2*M)
-    phi = (2*L)/((m+M)*R**2+2*L**2*M)
+        #plt.legend(bbox_to_anchor=(1.05, 1.0, 0.0003, 0.002), loc='best', shadow=True, framealpha=1)
+        plt.legend(loc='best', shadow=True, framealpha=1)
+        plt.grid(alpha=0.3)
+        plt.ylabel('$\\theta$ (rad)')
+        plt.xlabel('time (s)')
 
-    A = np.array([[0,1,0,0],[0,-b*gamma,beta,0],[0,0,0,1],[0,b*phi,alpha,0]])
-    B = np.array([[0],[gamma],[0],[-phi]])
-    C = np.array([[1,0,0,0],[0,0,1,0]])
-    D = np.array([[0],[0]])
-
-    # Creating Space state
-    linearizedSystem_angles = control.ss(A,B,C,D)
-
-    # Transfer function
-    H = control.ss2tf(linearizedSystem_angles)
-     
-    # Removing values near to 0
-    den = np.around(H.den,decimals=12)
-    num = np.around(H.num,decimals=12)
-    H = control.tf(num,den)
+        counter += 1
+        
+        
+            #%% Stability analysis
     
-    # Controlability Analysis
-    control_matrix_angles = control.ctrb(A, B)
-    control_matrix_angles_rank = np.linalg.matrix_rank(control_matrix_angles)
-    n_A_angles = np.shape(A[0])
-   
-    # Observabilty analysis
-    obs_matrix_angles = control.obsv(A, C)
-    obs_matrix_angles_rank = np.linalg.matrix_rank(obs_matrix_angles)
-     
-    #%% System response to step function
-     
-    _,yout_taylor = control.step_response(linearizedSystem_Taylor,T=t,X0=deltaX)
-    _,yout_angles = control.step_response(linearizedSystem_angles,T=t,X0=deltaX)
+        # G is the system transfer function using linealized system with Taylor
+        # H is the system transfer function using linealized system with small angles
     
-    # Evolution of x
+        print(f'Lineal system (Taylor):\n TF is = {G}')
+        print(f'\nLineal system (small angles):\n TF is = {H}')
+    
+        # Poles
+        G_poles = G.pole()
+        H_poles = H.pole()
+        print(f'Lineal system (small angles):\n Poles at: {G_poles}')
      
-    plt.figure()
-    plt.plot(t,xNL[:,0], label='Non-lineal')
-    plt.plot(t,np.transpose(yout_taylor[0]),label='Linealized by Taylor')
-    plt.plot(t,np.transpose(yout_angles[0]),label='Linealized (small angles)')
-    plt.title('X variation along time')
 
-    plt.legend(loc='best', shadow=True, framealpha=1)
-    plt.grid(alpha=0.3)
-    plt.ylabel('x (m)')
-    plt.xlabel('time (s)')
+        print(f'\nLineal system (Taylor) Poles at:\n {H_poles}')
+        
+        print('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
+
+    
+        
+    
+    plt.figure(2).tight_layout()
+
     plt.show()
+        
+    '''
+#%%
     
-    # Evolution of theta
-
-    plt.figure()
-    plt.plot(t,xNL[:,2], label='Non-lineal')
-    plt.plot(t,np.transpose(yout_taylor[1]),label='Linealized by Taylor')
-    plt.plot(t,np.transpose(yout_angles[1]),label='Linealized (small angles)')
-    plt.title('$\\theta$ variation along time')
-
-    plt.legend(loc='best', shadow=True, framealpha=1)
-    plt.grid(alpha=0.3)
-    plt.ylabel('$\\theta$ (rad)')
-    plt.xlabel('time (s)')
-    plt.show()
+    counter = 1
+    nums = [[-0.2, -0.9, -0.12, 0],[-0.375+0.8627717j, -0.375-0.8627717j, 5 * -0.375, 0], [-0.3,-0.8,-0.2, -0.234]]
+    for i in nums:
     
+        # Colocamos el polo del origen en 5 veces la parte real del autovalor mas lejano al origen
+        K = control.place(Jx, Ju, i)
+        A2 = Jx - B @ K
+        print('La nueva matriz A2 es \n' + str(A2))
+        
+        # Obtenemos el espacio de estados con la nueva matriz
+        sys3 = control.StateSpace(A2,Ju,C,D)
+        
+        _, yout = control.step_response(sys3, T=t)
+        
+    
+        # Evolution of x
+        plt.figure(3, figsize=(10,6))
+        #plt.subplot(3,1,counter)
+        #plt.plot(t,xNL[:,0], label=fr'Non-lineal ($\mu$={b})')
+        plt.plot(t,np.transpose(yout[0]),label='Linealized by Taylor')
+        #plt.plot(t,np.transpose(yout_angles[0]),label=f'Linealized (small angles (M={M}Kg))')
+        plt.title('X variation along time')
+    
+        plt.legend(loc='best', shadow=True, framealpha=1)
+        plt.grid(alpha=0.3)
+        plt.ylabel('x (m)')
+        plt.xlabel('time (s)')
+        
+        
+    
+        # Evolution of theta
+        plt.figure(4,figsize=(10,6))
+        #plt.plot(t,xNL[:,2], label=fr'Non-lineal ($mu$={b})')
+        plt.plot(t,np.transpose(yout[1]),label='Linealized by Taylor')
+        #plt.plot(t,np.transpose(yout_angles[1]),label='Linealized (small angles)')
+        plt.title('$\\theta$ variation along time')
+    
+        #plt.legend(bbox_to_anchor=(1.05, 1.0, 0.0003, 0.002), loc='best', shadow=True, framealpha=1)
+        plt.legend(loc='best', shadow=True, framealpha=1)
+        plt.grid(alpha=0.3)
+        plt.ylabel('$\\theta$ (rad)')
+        plt.xlabel('time (s)')
+
+  
+  
     #%% Stability analysis
     
     # G is the system transfer function using linealized system with Taylor
@@ -249,4 +329,4 @@ if __name__ == "__main__":
     
     
     #%% State feedback design
-    
+    '''
