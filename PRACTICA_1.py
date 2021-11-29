@@ -294,8 +294,8 @@ if __name__ == "__main__":
     linealizedSystem = control.ss(A_1,B,C,D)
     _,yout_1 = control.impulse_response(linealizedSystem,T=t)
     
-    # 1.2.) With m = 1 kg
-    m = 1
+    # 1.2.) With m = 0.4 kg
+    m = 0.4
     
     A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
     A_1 = A - B@K 
@@ -303,8 +303,8 @@ if __name__ == "__main__":
     linealizedSystem = control.ss(A_1,B,C,D)
     _,yout_2 = control.impulse_response(linealizedSystem,T=t)
     
-    # 1.3.) With m = 0.05 kg
-    m = 0.05
+    # 1.3.) With m = 0.7 kg
+    m = 0.7
     
     A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
     A_1 = A - B@K 
@@ -315,8 +315,8 @@ if __name__ == "__main__":
     # Evolution of x
     plt.figure()
     plt.plot(t,np.transpose(yout_1[0]), label='Controlled reference System with m = 0.2 kg')
-    plt.plot(t,np.transpose(yout_2[0]), label='Controlled System with m = 1 kg')
-    plt.plot(t,np.transpose(yout_3[0]), label='Controlled System with m = 0.05 kg')
+    plt.plot(t,np.transpose(yout_2[0]), label='Controlled System with m = 0.4 kg')
+    plt.plot(t,np.transpose(yout_3[0]), label='Controlled System with m = 0.7 kg')
     plt.title('X variation along time')
     plt.legend(loc='best', shadow=True, framealpha=1)
     plt.grid(alpha=0.3)
@@ -327,8 +327,8 @@ if __name__ == "__main__":
     # Evolution of phi
     plt.figure()
     plt.plot(t,np.transpose(yout_1[1]), label='Controlled reference System with m = 0.2 kg')
-    plt.plot(t,np.transpose(yout_2[1]), label='Controlled System with m = 1 kg')
-    plt.plot(t,np.transpose(yout_3[1]), label='Controlled System with m = 0.05 kg')
+    plt.plot(t,np.transpose(yout_2[1]), label='Controlled System with m = 0.4 kg')
+    plt.plot(t,np.transpose(yout_3[1]), label='Controlled System with m = 0.7 kg')
     plt.title('$\\phi$ variation along time')
     plt.legend(loc='best', shadow=True, framealpha=1)
     plt.grid(alpha=0.3)
@@ -338,6 +338,14 @@ if __name__ == "__main__":
     
     
     # 2) Influence of cart mass (M) in controlled system
+    
+    u = 1      # Similar to a step reponse
+    g = 9.81    
+    L = 0.3
+    m = 0.2
+    I = 0.006
+    M = 0.5
+    b = 0.1
     
     # Controlled system with the following K configuration:
     K = control.place(A,B,[H_poles[1]+60j,H_poles[1]-60j,H_poles[2],0])
@@ -393,4 +401,139 @@ if __name__ == "__main__":
     plt.ylabel('$\\phi$ (rad)')
     plt.xlabel('time (s)')
     plt.show()
+    
+    # 3) Influence of rod length in controlled system
+    
+    u = 1      # Similar to a step reponse
+    g = 9.81    
+    L = 0.1
+    m = 0.2
+    I = 0.006
+    M = 0.5
+    b = 0.1
+    
+    # Controlled system with the following K configuration:
+    K = control.place(A,B,[H_poles[1]+60j,H_poles[1]-60j,H_poles[2],0])
+         
+    # Time vector
+    t = np.linspace(0,3,50000)
+   
+    # 2.1) Base case (with L = 0.1)
+    A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
+    A_1 = A - B@K 
+    
+    linealizedSystem = control.ss(A_1,B,C,D)
+    _,yout_1 = control.impulse_response(linealizedSystem,T=t)
+    
+    # 2.2.) With L = 0.2
+    L = 0.2
+    
+    A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
+    A_1 = A - B@K 
+    
+    linealizedSystem = control.ss(A_1,B,C,D)
+    _,yout_2 = control.impulse_response(linealizedSystem,T=t)
+    
+    # 2.3.) With L = 0.4
+    L = 0.4
+    
+    A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
+    A_1 = A - B@K 
+    
+    linealizedSystem = control.ss(A_1,B,C,D)
+    _,yout_3 = control.impulse_response(linealizedSystem,T=t)
+    
+    # Evolution of x
+    plt.figure()
+    plt.plot(t,np.transpose(yout_1[0]), label='Controlled reference System with L = 0.1 m')
+    plt.plot(t,np.transpose(yout_2[0]), label='Controlled System with L = 0.2 m')
+    plt.plot(t,np.transpose(yout_3[0]), label='Controlled System with L = 0.4 m')
+    plt.title('X variation along time')
+    plt.legend(loc='best', shadow=True, framealpha=1)
+    plt.grid(alpha=0.3)
+    plt.ylabel('x (m)')
+    plt.xlabel('time (s)')
+    plt.show()
+    
+    # Evolution of phi
+    plt.figure()
+    plt.plot(t,np.transpose(yout_1[1]), label='Controlled reference System with L = 0.1 m')
+    plt.plot(t,np.transpose(yout_2[1]), label='Controlled System with L = 0.2 m')
+    plt.plot(t,np.transpose(yout_3[1]), label='Controlled System with L = 0.4 m')
+    plt.title('$\\phi$ variation along time')
+    plt.legend(loc='best', shadow=True, framealpha=1)
+    plt.grid(alpha=0.3)
+    plt.ylabel('$\\phi$ (rad)')
+    plt.xlabel('time (s)')
+    plt.show()
+    
+    
+    # 4) Influence of radius in controlled system
+    
+    u = 1      # Similar to a step reponse
+    g = 9.81    
+    L = 0.1
+    m = 0.2
+    radius = 0.25
+    I = (1/2) * m * radius ** 2
+    M = 0.5
+    b = 0.1
+    
+    # Controlled system with the following K configuration:
+    K = control.place(A,B,[H_poles[1]+60j,H_poles[1]-60j,H_poles[2],0])
+         
+    # Time vector
+    t = np.linspace(0,2,50000)
+   
+    # 2.1) Base case (with radius = 0.25)
+    A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
+    A_1 = A - B@K 
+    
+    linealizedSystem = control.ss(A_1,B,C,D)
+    _,yout_1 = control.impulse_response(linealizedSystem,T=t)
+    
+    # 2.2.) With radius = 0.15
+    radius = 0.15
+    I = (1/2) * m * radius ** 2
+    
+    A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
+    A_1 = A - B@K 
+    
+    linealizedSystem = control.ss(A_1,B,C,D)
+    _,yout_2 = control.impulse_response(linealizedSystem,T=t)
+    
+    # 2.3.) With radius = 0.3
+    radius = 0.3
+    I = (1/2) * m * radius ** 2
+
+    A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
+    A_1 = A - B@K 
+    
+    linealizedSystem = control.ss(A_1,B,C,D)
+    _,yout_3 = control.impulse_response(linealizedSystem,T=t)
+    
+    # Evolution of x
+    plt.figure()
+    plt.plot(t,np.transpose(yout_1[0]), label='Controlled reference System with radius = 0.25 m')
+    plt.plot(t,np.transpose(yout_2[0]), label='Controlled System with radius = 0.15 m')
+    plt.plot(t,np.transpose(yout_3[0]), label='Controlled System with radius = 0.3 m')
+    plt.title('X variation along time')
+    plt.legend(loc='best', shadow=True, framealpha=1)
+    plt.grid(alpha=0.3)
+    plt.ylabel('x (m)')
+    plt.xlabel('time (s)')
+    plt.show()
+    
+    # Evolution of phi
+    plt.figure()
+    plt.plot(t,np.transpose(yout_1[1]), label='Controlled reference System with radius = 0.25 m')
+    plt.plot(t,np.transpose(yout_2[1]), label='Controlled System with radius = 0.15 m')
+    plt.plot(t,np.transpose(yout_3[1]), label='Controlled System with radius = 0.3 m')
+    plt.title('$\\phi$ variation along time')
+    plt.legend(loc='best', shadow=True, framealpha=1)
+    plt.grid(alpha=0.3)
+    plt.ylabel('$\\phi$ (rad)')
+    plt.xlabel('time (s)')
+    plt.show()
+    
     
