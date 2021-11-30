@@ -13,6 +13,7 @@ Version History
         v2.1: Added transfer function study
         v2.2: Added controlabillity and 
         v2.3: Added feedback control
+        v2.4: Added parametrized study
         
 """
 
@@ -40,7 +41,6 @@ def f(xVec, t, params):
     # theta_dot = f3
     # theta_dot_dot = f4
     
-    
     return [dX,
             (((-2*L**2-R**2)*(-b*dX+dTheta**2*L*m*np.sin(theta)+u))/(2*L**2*m*np.cos(theta)**2-m*R**2-M*R**2-2*L**2*m-2*L**2*M) - (2*g*L**2*m*np.cos(theta)*np.sin(theta))/(2*L**2*m*np.cos(theta)**2-m*R**2-M*R**2-2*L**2*m-2*L**2*M)),
             dTheta,
@@ -66,6 +66,7 @@ if __name__ == "__main__":
     # Time vector
     t = np.linspace(0,1,50000)
     
+    # Initial conditions
     xRef = np.array([0.0,   # x_0 
                      0.0,   # dot_x_0
                      np.pi,   # theta_0
@@ -90,10 +91,9 @@ if __name__ == "__main__":
     
     def linealizeSystem(params):
         
-        M,m,L,b,u,R,g = params
-        
         # System constants
-        
+        M,m,L,b,u,R,g = params
+
         # Where dot_x2 = -b*gamma*x_2 + beta*x_3+gamma*u
         gamma = (I+m*L**2)/(I*(M+m)+M*m*L**2)
         beta = (m**2*L**2*g)/(I*(M+m)+M*m*L**2)
@@ -182,7 +182,7 @@ if __name__ == "__main__":
     
     #%% Stability analysis in linealized system.
     
-    # Transfer function (it is an array with 2 tranfer functions)
+    # Transfer functions (it is an array with 2 tranfer functions)
     H = control.ss2tf(linearizedSystem)
  
     # Removing values near to 0
@@ -225,20 +225,25 @@ if __name__ == "__main__":
     
     # K configurations
     
-    #K = control.place(A,B,[-2*H_poles[0],H_poles[1],H_poles[2],H_poles[3]])
-    #K = control.place(A,B,[1.2*H_poles[1],H_poles[1],H_poles[2],-1])
+    # First Configuration: poles at [-11.1359112,-5.6069421,-0.1428316,0.0]
+    # K = control.place(A,B,[-2*H_poles[0],H_poles[1],H_poles[2],H_poles[3]])
+    
+    # Second Configuration: poles at [-6.728330554, -5.60694212, -0.142831661, -1]
+    # K = control.place(A,B,[1.2*H_poles[1],H_poles[1],H_poles[2],-1])
+    
+    # Third Configuration: poles at [-5.606942128+60j,-5.606942128-60j,-0.14283166170, 0]
     K = control.place(A,B,[H_poles[1]+60j,H_poles[1]-60j,H_poles[2],0])
    
     # Creating new State Space
+    A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
     A_1 = A - B@K
-
-    _,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
+    
     linearizedSystem_new = control.ss(A_1,B,C,D)
 
     # Transfer function (it is an array with 2 tranfer functions)
     H_new = control.ss2tf(linearizedSystem_new)
     
-    # System response vs step (with feedback)
+    # System response vs step function(with feedback)
     t_new = np.linspace(0,50,50000)
     _,yout_new = control.impulse_response(linearizedSystem_new,T=t_new)
     
@@ -285,7 +290,7 @@ if __name__ == "__main__":
     K = control.place(A,B,[H_poles[1]+60j,H_poles[1]-60j,H_poles[2],0])
          
     # Time vector
-    t = np.linspace(0,5,50000)
+    t = np.linspace(0,2,50000)
    
     # 1.1) Base case (with m = 0.2 kg)
     A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
@@ -351,7 +356,7 @@ if __name__ == "__main__":
     K = control.place(A,B,[H_poles[1]+60j,H_poles[1]-60j,H_poles[2],0])
          
     # Time vector
-    t = np.linspace(0,3,50000)
+    t = np.linspace(0,5,50000)
    
     # 2.1) Base case (with M = 0.5 kg)
     A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
@@ -418,7 +423,7 @@ if __name__ == "__main__":
     # Time vector
     t = np.linspace(0,3,50000)
    
-    # 2.1) Base case (with L = 0.1)
+    # 3.1) Base case (with L = 0.1)
     A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
     A_1 = A - B@K 
     
@@ -485,28 +490,28 @@ if __name__ == "__main__":
     # Time vector
     t = np.linspace(0,2,50000)
    
-    # 2.1) Base case (with radius = 0.25)
-    A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
+    # 4.1) Base case (with radius = 0.25)
+    A,B,C,D = linealizeSystem([M,m,L,b,u,radius,g])
     A_1 = A - B@K 
     
     linealizedSystem = control.ss(A_1,B,C,D)
     _,yout_1 = control.impulse_response(linealizedSystem,T=t)
     
-    # 2.2.) With radius = 0.15
+    # 4.2.) With radius = 0.15
     radius = 0.15
     I = (1/2) * m * radius ** 2
     
-    A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
+    A,B,C,D = linealizeSystem([M,m,L,b,u,radius,g])
     A_1 = A - B@K 
     
     linealizedSystem = control.ss(A_1,B,C,D)
     _,yout_2 = control.impulse_response(linealizedSystem,T=t)
     
-    # 2.3.) With radius = 0.3
+    # 4.3.) With radius = 0.3
     radius = 0.3
     I = (1/2) * m * radius ** 2
 
-    A,B,C,D = linealizeSystem([M,m,L,b,u,R,g])
+    A,B,C,D = linealizeSystem([M,m,L,b,u,radius,g])
     A_1 = A - B@K 
     
     linealizedSystem = control.ss(A_1,B,C,D)
